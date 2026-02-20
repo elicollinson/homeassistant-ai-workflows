@@ -28,6 +28,11 @@ class ContentResult(BaseModel):
     streaming_options: list[StreamingOption] = []
 
 
+class PairRequest(BaseModel):
+    identifier: str
+    pin: str | None = None
+
+
 class WebhookRequest(BaseModel):
     command: str
 

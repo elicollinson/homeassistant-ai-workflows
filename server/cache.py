@@ -43,7 +43,7 @@ async def get(tmdb_id: int) -> dict | None:
     return json.loads(data)
 
 
-async def set(tmdb_id: int, data: dict) -> None:
+async def store(tmdb_id: int, data: dict) -> None:
     if _db is None:
         return
     await _db.execute(

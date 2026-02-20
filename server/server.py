@@ -9,26 +9,30 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
 from server import apple_tv_control, cache, config, content_lookup, intent_parser
-from server.models import WebhookRequest, WebhookResponse
-
-structlog.configure(
-    wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
-    processors=[
-        structlog.contextvars.merge_contextvars,
-        structlog.processors.add_log_level,
-        structlog.processors.TimeStamper(fmt="iso"),
-        structlog.dev.ConsoleRenderer(),
-    ],
-)
+from server.models import PairRequest, WebhookRequest, WebhookResponse
 
 log = structlog.get_logger()
 
 resources: dict = {}
 
 
+def _configure_logging() -> None:
+    level = getattr(logging, config.LOG_LEVEL, logging.INFO)
+    structlog.configure(
+        wrapper_class=structlog.make_filtering_bound_logger(level),
+        processors=[
+            structlog.contextvars.merge_contextvars,
+            structlog.processors.add_log_level,
+            structlog.processors.TimeStamper(fmt="iso"),
+            structlog.dev.ConsoleRenderer(),
+        ],
+    )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     config.load()
+    _configure_logging()
     log.info("config_loaded", dry_run=config.DRY_RUN)
 
     resources["http_client"] = httpx.AsyncClient(timeout=30.0)
@@ -137,9 +141,9 @@ async def devices():
 
 
 @app.post("/pair")
-async def pair(request: dict):
-    identifier = request.get("identifier", "")
-    pin = request.get("pin")
+async def pair(request: PairRequest):
+    identifier = request.identifier
+    pin = request.pin
     try:
         result = await apple_tv_control.pair_device(identifier, pin)
         return result

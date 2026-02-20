@@ -166,7 +166,7 @@ class TestContentLookup:
         mock_client.get = AsyncMock(return_value=mock_resp)
 
         with patch.object(cache, "get", new_callable=AsyncMock, return_value=None), \
-             patch.object(cache, "set", new_callable=AsyncMock):
+             patch.object(cache, "store", new_callable=AsyncMock):
             with patch.object(content_lookup, "_query_streaming_availability", new_callable=AsyncMock, return_value=[]):
                 result = await content_lookup.lookup(intent, mock_client)
 
@@ -187,7 +187,7 @@ class TestContentLookup:
         mock_client.get = AsyncMock(return_value=mock_resp)
 
         with patch.object(cache, "get", new_callable=AsyncMock, return_value=None), \
-             patch.object(cache, "set", new_callable=AsyncMock):
+             patch.object(cache, "store", new_callable=AsyncMock):
             with patch.object(content_lookup, "_query_streaming_availability", new_callable=AsyncMock, return_value=[]):
                 result = await content_lookup.lookup(intent, mock_client)
 

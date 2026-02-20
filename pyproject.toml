@@ -2,7 +2,7 @@
 name = "launch-any-show-appletv"
 version = "0.1.0"
 description = "Add your description here"
-requires-python = ">=3.13"
+requires-python = ">=3.11"
 dependencies = [
     "aiosqlite>=0.22.1",
     "fastapi>=0.129.0",

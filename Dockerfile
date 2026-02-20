@@ -11,7 +11,8 @@ RUN apk add --no-cache \
     openssl-dev
 
 COPY requirements.txt /tmp/
-RUN pip3 install --no-cache-dir --break-system-packages -r /tmp/requirements.txt
+RUN pip3 install --no-cache-dir --break-system-packages -r /tmp/requirements.txt \
+    && rm /tmp/requirements.txt
 
 COPY server/ /app/server/
 COPY run.sh /app/

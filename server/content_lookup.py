@@ -8,24 +8,33 @@ from server.models import ContentResult, ParsedIntent, StreamingOption
 
 log = structlog.get_logger()
 
+# User-facing name → Apple TV bundle ID.
+# This is the single source of truth for bundle ID resolution.
+# Both voice command matching and streaming-API mapping use this table.
 BUNDLE_IDS: dict[str, str] = {
     "netflix": "com.netflix.Netflix",
     "hulu": "com.hulu.plus",
+    "disney": "com.disney.disneyplus",
     "disney+": "com.disney.disneyplus",
     "disney plus": "com.disney.disneyplus",
-    "amazon prime": "com.amazon.aiv.AIVApp",
-    "prime video": "com.amazon.aiv.AIVApp",
     "amazon": "com.amazon.aiv.AIVApp",
+    "amazon prime": "com.amazon.aiv.AIVApp",
+    "prime": "com.amazon.aiv.AIVApp",
+    "prime video": "com.amazon.aiv.AIVApp",
+    "apple": "com.apple.Prospect",
     "apple tv+": "com.apple.Prospect",
     "apple tv plus": "com.apple.Prospect",
+    "hbo": "com.warnermedia.HBONow",
     "hbo max": "com.warnermedia.HBONow",
     "max": "com.warnermedia.HBONow",
     "peacock": "com.peacocktv.peacocktvtv",
+    "paramount": "com.cbs.ott",
     "paramount+": "com.cbs.ott",
     "paramount plus": "com.cbs.ott",
     "showtime": "com.showtime.standalone",
     "crunchyroll": "com.crunchyroll.iphone",
     "tubi": "com.tubitv",
+    "plutotv": "com.pluto.tv",
     "pluto tv": "com.pluto.tv",
     "plex": "com.plexapp.plex",
     "youtube": "com.google.ios.youtube",
@@ -33,25 +42,6 @@ BUNDLE_IDS: dict[str, str] = {
     "starz": "com.starz.starzplay",
     "vudu": "com.vudu.air.DigitalCopyProvider",
     "fandango at home": "com.vudu.air.DigitalCopyProvider",
-}
-
-SA_SERVICE_TO_BUNDLE: dict[str, str] = {
-    "netflix": "com.netflix.Netflix",
-    "hulu": "com.hulu.plus",
-    "disney": "com.disney.disneyplus",
-    "prime": "com.amazon.aiv.AIVApp",
-    "apple": "com.apple.Prospect",
-    "hbo": "com.warnermedia.HBONow",
-    "peacock": "com.peacocktv.peacocktvtv",
-    "paramount": "com.cbs.ott",
-    "showtime": "com.showtime.standalone",
-    "starz": "com.starz.starzplay",
-    "crunchyroll": "com.crunchyroll.iphone",
-    "tubi": "com.tubitv",
-    "plutotv": "com.pluto.tv",
-    "plex": "com.plexapp.plex",
-    "youtube": "com.google.ios.youtube",
-    "vudu": "com.vudu.air.DigitalCopyProvider",
 }
 
 
@@ -73,7 +63,7 @@ async def lookup(intent: ParsedIntent, http_client: httpx.AsyncClient) -> Conten
 
     tmdb_result.streaming_options = options
 
-    await cache.set(tmdb_result.tmdb_id, tmdb_result.model_dump())
+    await cache.store(tmdb_result.tmdb_id, tmdb_result.model_dump())
     return tmdb_result
 
 
@@ -90,18 +80,12 @@ def pick_best_option(
             if opt.bundle_id == preferred_bundle or opt.service.lower() == preferred_lower:
                 return opt
 
-    with_deep_links = [o for o in options if o.deep_link]
-    if with_deep_links:
-        subs = [o for o in with_deep_links if o.type == "sub"]
-        if subs:
-            return subs[0]
-        return with_deep_links[0]
+    # Rank: subscription with deep link > any deep link > subscription > first available
+    def _sort_key(opt: StreamingOption) -> tuple[bool, bool]:
+        return (not opt.deep_link, opt.type != "sub")
 
-    subs = [o for o in options if o.type == "sub"]
-    if subs:
-        return subs[0]
-
-    return options[0]
+    ranked = sorted(options, key=_sort_key)
+    return ranked[0]
 
 
 async def _search_tmdb(intent: ParsedIntent, http_client: httpx.AsyncClient) -> ContentResult | None:
@@ -173,7 +157,7 @@ async def _query_streaming_availability(
     streaming_info = data.get("streamingOptions", {}).get("us", [])
     for entry in streaming_info:
         service_id = entry.get("service", {}).get("id", "")
-        bundle_id = SA_SERVICE_TO_BUNDLE.get(service_id)
+        bundle_id = BUNDLE_IDS.get(service_id)
         opt_type = entry.get("type", "sub")
         price = None
         if entry.get("price"):
