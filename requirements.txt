@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+httpx
+google-genai
+pyatv
+aiosqlite
+structlog
+pydantic
+pytest
+pytest-asyncio
